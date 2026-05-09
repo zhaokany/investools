@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>股票凯利仓位 & 资金曲线</title>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            padding: 20px;
+        }
+        .container {
+            background: #fff;
+            max-width: 800px;
+            margin: auto;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            margin: 8px 0;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .result {
+            margin-top: 20px;
+            background: #e9f5ff;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        canvas {
+            margin-top: 20px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>📈 股票凯利仓位 & 资金曲线</h2>
+        
+        <label>胜率（0~1）</label>
+        <input id="p" type="number" step="0.01" value="0.55">
+
+        <label>预期收益率（如 0.10）</label>
+        <input id="profit" type="number" step="0.01" value="0.10">
+
+        <label>止损比例（如 0.02）</label>
+        <input id="loss" type="number" step="0.01" value="0.02">
+
+        <label>初始本金</label>
+        <input id="capital" type="number" value="100000">
+
+        <label>重复次数</label>
+        <input id="times" type="number" value="200">
+
+        <label>半凯利系数（0.25 / 0.5）</label>
+        <input id="k" type="number" step="0.05" value="0.5">
+
+        <label>最大仓位限制（如 0.3）</label>
+        <input id="maxPos" type="number" step="0.01" value="0.3">
+
+        <button onclick="calculate()">计算</button>
+
+        <div id="output" class="result" style="display:none;">
+            <h3>📊 计算结果</h3>
+            <p>原始凯利仓位：<span id="rawF"></span></p>
+            <p>最终建议仓位：<span id="finalF"></span></p>
+            <p>最终资金：<strong><span id="finalCapital"></span></strong></p>
+            <canvas id="chart" height="300"></canvas>
+        </div>
+    </div>
+
+    <script>
+        var chart; // 使用 var 避免重复声明错误
+
+        function calculate() {
+            const p = parseFloat(document.getElementById("p").value);
+            const profit = parseFloat(document.getElementById("profit").value);
+            const loss = parseFloat(document.getElementById("loss").value);
+            let capital = parseFloat(document.getElementById("capital").value);
+            const n = parseInt(document.getElementById("times").value);
+            const k = parseFloat(document.getElementById("k").value);
+            const maxPos = parseFloat(document.getElementById("maxPos").value);
+
+            const q = 1 - p;
+            const r = profit / loss;
+            let rawF = (p * r - q) / r;
+            if (rawF < 0) rawF = 0;
+
+            const finalF = Math.min(rawF * k, maxPos);
+            const data = [capital];
+            let balance = capital;
+
+            for (let i = 1; i <= n; i++) {
+                const bet = balance * finalF;
+                if (Math.random() < p) {
+                    balance += bet * profit;
+                } else {
+                    balance -= bet * loss;
+                }
+                data.push(balance);
+            }
+
+            document.getElementById("rawF").innerText = (rawF * 100).toFixed(2) + "%";
+            document.getElementById("finalF").innerText = (finalF * 100).toFixed(2) + "%";
+            document.getElementById("finalCapital").innerText = balance.toLocaleString("zh-CN", {minimumFractionDigits: 2});
+
+            drawChart(data);
+            document.getElementById("output").style.display = "block";
+        }
+
+        function drawChart(data) {
+            const ctx = document.getElementById("chart").getContext("2d");
+            if (chart) {
+                chart.destroy();
+            }
+            chart = new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels: data.map((_, i) => i),
+                    datasets: [{
+                        label: "账户资金变化",
+                        data: data,
+                        borderColor: "#007bff",
+                        fill: false,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: true }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: "下注次数" }
+                        },
+                        y: {
+                            title: { display: true, text: "资金" }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
